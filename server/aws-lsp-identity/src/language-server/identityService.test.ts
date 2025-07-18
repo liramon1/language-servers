@@ -8,7 +8,7 @@ import { createStubInstance, restore, spy, SinonSpy, stub } from 'sinon'
 import {
     AuthorizationFlowKind,
     CancellationToken,
-    IamCredentials,
+    IamCredential,
     ProfileKind,
     SsoTokenSourceKind,
 } from '@aws/language-server-runtimes/protocol'
@@ -100,9 +100,13 @@ describe('IdentityService', () => {
 
         iamProvider = createStubInstance(IamProvider, {
             getCredential: Promise.resolve({
-                accessKeyId: 'access-key',
-                secretAccessKey: 'secret-key',
-            } as IamCredentials),
+                id: 'id',
+                kinds: [],
+                credentials: {
+                    accessKeyId: 'access-key',
+                    secretAccessKey: 'secret-key',
+                },
+            } as IamCredential),
         }) as StubbedInstance<IamProvider>
 
         authFlowFn = spy(() =>
@@ -335,15 +339,15 @@ describe('IdentityService', () => {
     })
 
     describe('invalidateStsCredential', () => {
-        it('Removes on valid profile name', async () => {
-            await sut.invalidateStsCredential({ profileName: 'my-role-profile' }, CancellationToken.None)
+        it('Removes on valid name', async () => {
+            await sut.invalidateStsCredential({ iamCredentialId: 'my-role-profile' }, CancellationToken.None)
 
             expect(stsCache.removeStsCredential.called).is.true
         })
 
-        it('Throws on invalid profile name', async () => {
+        it('Throws on invalid name', async () => {
             await expect(
-                sut.invalidateStsCredential({ profileName: '   ' }, CancellationToken.None)
+                sut.invalidateStsCredential({ iamCredentialId: '   ' }, CancellationToken.None)
             ).to.be.rejectedWith()
 
             expect(stsCache.removeStsCredential.notCalled).is.true
