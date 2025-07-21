@@ -12,6 +12,7 @@ import {
     PartialInitializeResult,
     ShowMessageRequestParams,
     GetIamCredentialParams,
+    GetMfaCodeParams,
 } from '@aws/language-server-runtimes/server-interface'
 import { SharedConfigProfileStore } from './profiles/sharedConfigProfileStore'
 import { IdentityService } from './identityService'
@@ -45,7 +46,8 @@ export class IdentityServer extends ServerBase {
         const showMessageRequest: ShowMessageRequest = (params: ShowMessageRequestParams) =>
             this.features.lsp.window.showMessageRequest(params)
         const showProgress: ShowProgress = this.features.lsp.sendProgress
-        const sendGetMfaCode: SendGetMfaCode = this.features.identityManagement.sendGetMfaCode
+        const sendGetMfaCode: SendGetMfaCode = (params: GetMfaCodeParams) =>
+            this.features.identityManagement.sendGetMfaCode(params)
 
         // Initialize dependencies
         const profileStore = new SharedConfigProfileStore(this.observability)
