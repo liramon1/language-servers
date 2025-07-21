@@ -23,53 +23,34 @@ export async function simulatePermissions(
     permissions: string[],
     region?: string
 ): Promise<SimulatePrincipalPolicyCommandOutput> {
-    console.log('simulatePermissions called with:', { permissions, region })
     // Convert the credentials into an identity
-    console.log('Creating STS client with region:', region || 'us-east-1')
     const stsClient = new STSClient({ region: region || 'us-east-1', credentials: credentials })
-    console.log('Sending GetCallerIdentityCommand')
     const identity = await stsClient.send(new GetCallerIdentityCommand({}))
-    console.log('GetCallerIdentity response:', identity)
     if (!identity.Arn) {
-        console.log('Error: Caller identity ARN not found')
         throw new AwsError('Caller identity ARN not found.', AwsErrorCodes.E_INVALID_PROFILE)
     }
 
     // Simulate permissions on the identity
-    console.log('Creating IAM client with region:', region || 'us-east-1')
     const iamClient = new IAMClient({ region: region || 'us-east-1', credentials: credentials })
-
-    const policyArn = convertToIamArn(identity.Arn)
-    console.log('Converting ARN:', identity.Arn, 'to:', policyArn)
-
-    console.log('Sending SimulatePrincipalPolicyCommand with:', {
-        PolicySourceArn: policyArn,
-        ActionNames: permissions,
-    })
 
     const result = await iamClient.send(
         new SimulatePrincipalPolicyCommand({
-            PolicySourceArn: policyArn,
+            PolicySourceArn: convertToIamArn(identity.Arn),
             ActionNames: permissions,
         })
     )
 
-    console.log('SimulatePrincipalPolicy response:', result)
     return result
 }
 
 // Converts an assumed role ARN into an IAM role ARN
 function convertToIamArn(arn: string) {
-    console.log('convertToIamArn called with:', arn)
     if (arn.includes(':assumed-role/')) {
-        console.log('ARN contains :assumed-role/, converting to IAM role ARN')
         const parts = arn.split(':')
         const roleName = parts[5].split('/')[1]
         const result = `arn:aws:iam::${parts[4]}:role/${roleName}`
-        console.log('Converted ARN:', result)
         return result
     } else {
-        console.log('ARN does not contain :assumed-role/, returning as is')
         return arn
     }
 }
