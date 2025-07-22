@@ -7,6 +7,7 @@ import {
     GetMfaCodeResult,
     IamCredentials,
     Profile,
+    StsCredentialChangedParams,
 } from '@aws/language-server-runtimes/server-interface'
 import { AwsError, Observability } from '@aws/lsp-core'
 import { StsCache } from '../sts/cache/stsCache'
@@ -17,30 +18,61 @@ import { AwsCredentialIdentityProvider, Provider, RuntimeConfigAwsCredentialIden
 import { InstanceMetadataCredentials, RemoteProviderInit } from '@smithy/credential-provider-imds'
 import { FromEnvInit } from '@aws-sdk/credential-provider-env'
 
-// Simulate permissions on the identity associated with the credentials
-export async function simulatePermissions(
+export async function validatePermissions(
     credentials: IamCredentials,
     permissions: string[],
     region?: string
+): Promise<boolean> {
+    const response = await simulatePermissions(credentials, permissions, region)
+    // If evaluation results are missing, assume caller does not have sufficient permissions
+    if (!response.EvaluationResults) {
+        return false
+    }
+    return response.EvaluationResults.every(result => result.EvalDecision === 'allowed')
+}
+
+export async function checkMfaRequired(
+    credentials: IamCredentials,
+    permissions: string[],
+    region?: string
+): Promise<boolean> {
+    const response = await simulatePermissions(credentials, permissions, region)
+    // If evaluation results are missing, assume caller does not need MFA
+    if (!response.EvaluationResults) {
+        return false
+    }
+    return response.EvaluationResults?.some(result =>
+        result?.MissingContextValues?.includes('aws:MultiFactorAuthPresent')
+    )
+}
+
+export function throwOnInvalidCredentialId(iamCredentialId?: string): asserts iamCredentialId is string {
+    if (typeof iamCredentialId?.trim !== 'function' || !iamCredentialId?.trim()) {
+        throw new AwsError('IAM credential id is invalid.', AwsErrorCodes.E_INVALID_STS_CREDENTIAL)
+    }
+}
+
+// Simulate permissions on the identity associated with the credentials
+async function simulatePermissions(
+    credentials: IamCredentials,
+    permissions: string[],
+    region: string = 'us-east-1'
 ): Promise<SimulatePrincipalPolicyCommandOutput> {
     // Convert the credentials into an identity
-    const stsClient = new STSClient({ region: region || 'us-east-1', credentials: credentials })
+    const stsClient = new STSClient({ region: region, credentials: credentials })
     const identity = await stsClient.send(new GetCallerIdentityCommand({}))
     if (!identity.Arn) {
-        throw new AwsError('Caller identity ARN not found.', AwsErrorCodes.E_INVALID_PROFILE)
+        throw new AwsError('Caller identity ARN not found.', AwsErrorCodes.E_CALLER_IDENTITY_NOT_FOUND)
     }
 
     // Simulate permissions on the identity
-    const iamClient = new IAMClient({ region: region || 'us-east-1', credentials: credentials })
-
-    const result = await iamClient.send(
+    const iamClient = new IAMClient({ region: region, credentials: credentials })
+    return await iamClient.send(
         new SimulatePrincipalPolicyCommand({
             PolicySourceArn: convertToIamArn(identity.Arn),
             ActionNames: permissions,
         })
     )
-
-    return result
 }
 
 // Converts an assumed role ARN into an IAM role ARN
@@ -55,12 +87,6 @@ function convertToIamArn(arn: string) {
     }
 }
 
-export function throwOnInvalidCredentialId(iamCredentialId?: string): asserts iamCredentialId is string {
-    if (!iamCredentialId?.trim()) {
-        throw new AwsError('IAM credential id is invalid.', AwsErrorCodes.E_INVALID_STS_CREDENTIAL)
-    }
-}
-
 export type CredentialProviders = {
     fromProcess: (init?: FromProcessInit) => RuntimeConfigAwsCredentialIdentityProvider
     fromContainerMetadata: (init?: RemoteProviderInit) => AwsCredentialIdentityProvider
@@ -69,6 +95,7 @@ export type CredentialProviders = {
 }
 
 export type SendGetMfaCode = (params: GetMfaCodeParams) => Promise<GetMfaCodeResult>
+export type SendStsCredentialChanged = (params: StsCredentialChangedParams) => void
 
 export type IamHandlers = {
     sendGetMfaCode: SendGetMfaCode

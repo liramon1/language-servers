@@ -31,7 +31,7 @@ import {
     SsoFlowParams,
     SsoHandlers,
 } from '../sso/utils'
-import { IamFlowParams, IamHandlers, simulatePermissions, throwOnInvalidCredentialId } from '../iam/utils'
+import { IamFlowParams, IamHandlers, throwOnInvalidCredentialId, validatePermissions } from '../iam/utils'
 import { AwsError, Observability } from '@aws/lsp-core'
 import { __ServiceException } from '@aws-sdk/client-sso-oidc/dist-types/models/SSOOIDCServiceException'
 import { deviceCodeFlow } from '../sso/deviceCode/deviceCodeFlow'
@@ -111,7 +111,7 @@ export class IdentityService {
                     clientName: this.clientName,
                     clientRegistration,
                     ssoSession,
-                    handlers: this.handlers as Pick<Handlers, keyof SsoHandlers>,
+                    handlers: this.handlers as SsoHandlers,
                     token,
                     observability: this.observability,
                 }
@@ -182,7 +182,7 @@ export class IdentityService {
                 profileStore: this.profileStore,
                 stsCache: this.stsCache,
                 stsAutoRefresher: this.stsAutoRefresher,
-                handlers: { sendGetMfaCode: this.handlers.sendGetMfaCode },
+                handlers: this.handlers as IamHandlers,
                 providers: {
                     fromProcess: fromProcess,
                     fromContainerMetadata: fromContainerMetadata,
@@ -196,12 +196,12 @@ export class IdentityService {
 
             // Validate permissions
             if (options.permissionSet.length > 0) {
-                const response = await simulatePermissions(
+                const hasPermissions = await validatePermissions(
                     credential.credentials,
                     options.permissionSet,
                     profile.settings?.region
                 )
-                if (!response?.EvaluationResults?.every(result => result.EvalDecision === 'allowed')) {
+                if (!hasPermissions) {
                     throw new AwsError(`Credentials have insufficient permissions.`, AwsErrorCodes.E_INVALID_PROFILE)
                 }
             }
