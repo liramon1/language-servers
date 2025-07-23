@@ -127,6 +127,7 @@ describe('IamProvider', () => {
         defaultParams = {
             profile: defaultProfile,
             callStsOnInvalidIamCredential: true,
+            recursionCount: 0,
             profileStore: profileStore,
             stsCache: stsCache,
             stsAutoRefresher: stsAutoRefresher,
@@ -137,6 +138,7 @@ describe('IamProvider', () => {
                 fromInstanceMetadata: provider,
                 fromContainerMetadata: provider,
             },
+            emitMetric: () => {},
             token: token,
             observability: observability,
         }
