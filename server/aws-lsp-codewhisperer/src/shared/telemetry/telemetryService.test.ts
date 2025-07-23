@@ -1,6 +1,5 @@
 import { TelemetryService } from './telemetryService'
 import {
-    Credentials,
     BearerCredentials,
     ConnectionMetadata,
     CredentialsProvider,
@@ -20,32 +19,28 @@ import { CodeWhispererService } from '../codeWhispererService'
 import { initBaseTestServiceManager, TestAmazonQServiceManager } from '../amazonQServiceManager/testUtils'
 import { TestFeatures } from '@aws/language-server-runtimes/testing'
 
-export function isIamCredentials(credentials: Credentials): credentials is IamCredentials {
-    const iamCredentials = credentials as IamCredentials
-    return iamCredentials?.accessKeyId !== undefined && iamCredentials?.secretAccessKey !== undefined
-}
-
-export function isBearerCredentials(credentials: Credentials): credentials is BearerCredentials {
-    return (credentials as BearerCredentials)?.token !== undefined
-}
-
 class MockCredentialsProvider implements CredentialsProvider {
-    private mockCurrentCredentials: IamCredentials | BearerCredentials | undefined
-    // private mockIamCredentials: IamCredentials | undefined
-    // private mockBearerCredentials: BearerCredentials | undefined
+    private mockIamCredentials: IamCredentials | undefined
+    private mockBearerCredentials: BearerCredentials | undefined
     private mockConnectionMetadata: ConnectionMetadata | undefined
     private mockConnectionType: SsoConnectionType | undefined
 
-    hasCredentials(): boolean {
-        return this.mockCurrentCredentials !== undefined
+    hasCredentials(type: CredentialsType): boolean {
+        if (type === 'iam') {
+            return this.mockIamCredentials !== undefined
+        } else if (type === 'bearer') {
+            return this.mockBearerCredentials !== undefined
+        }
+        return false
     }
 
-    getCredentials(): IamCredentials | BearerCredentials | undefined {
-        if (this.mockCurrentCredentials === undefined) {
-            throw new Error(`Credentials undefined`)
-        } else {
-            return this.mockCurrentCredentials
+    getCredentials(type: CredentialsType): IamCredentials | BearerCredentials | undefined {
+        if (type === 'iam') {
+            return this.mockIamCredentials
+        } else if (type === 'bearer') {
+            return this.mockBearerCredentials
         }
+        return undefined
     }
 
     onCredentialsDeleted(handler: (type: CredentialsType) => void) {}
