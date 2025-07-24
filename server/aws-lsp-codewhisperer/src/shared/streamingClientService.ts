@@ -26,6 +26,7 @@ import { CLIENT_TIMEOUT_MS } from '../language-server/agenticChat/constants/cons
 import { AmazonQUsageLimitError } from './amazonQServiceManager/errors'
 import { TokenIdentityProvider } from '@smithy/types'
 import { NodeHttpHandler } from '@smithy/node-http-handler'
+import { AwsCredentialIdentity, AwsCredentialIdentityProvider } from '@aws-sdk/types'
 
 export type SendMessageCommandInput =
     | SendMessageCommandInputCodeWhispererStreaming
