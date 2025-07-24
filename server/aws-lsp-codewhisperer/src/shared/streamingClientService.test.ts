@@ -10,7 +10,7 @@ import {
     SendMessageCommandInput,
     SendMessageCommandOutput,
 } from '@amzn/codewhisperer-streaming'
-import { QDeveloperStreaming } from '@amzn/amazon-q-developer-streaming-client'
+import { QDeveloperStreaming, QDeveloperStreamingClientResolvedConfig } from '@amzn/amazon-q-developer-streaming-client'
 import { rejects } from 'assert'
 
 const TIME_TO_ADVANCE_MS = 100
@@ -193,6 +193,7 @@ describe('Token', () => {
 
 describe('IAM', () => {
     let streamingClientService: StreamingClientService
+    let qDeveloperConfig: QDeveloperStreamingClientResolvedConfig
     let features: TestFeatures
     let clock: sinon.SinonFakeTimers
     let sendMessageStub: sinon.SinonStub
@@ -238,6 +239,7 @@ describe('IAM', () => {
             DEFAULT_AWS_Q_REGION,
             DEFAULT_AWS_Q_ENDPOINT_URL
         )
+        qDeveloperConfig = streamingClientService.client.config as QDeveloperStreamingClientResolvedConfig
 
         abortStub = sinon.stub(AbortController.prototype, 'abort')
     })
@@ -249,11 +251,7 @@ describe('IAM', () => {
 
     it('initializes with IAM credentials', () => {
         expect(streamingClientService.client).to.not.be.undefined
-        if ('credentials' in streamingClientService.client.config) {
-            expect(streamingClientService.client.config.credentials).to.not.be.undefined
-        } else {
-            expect.fail('credentials property is not defined on the client config')
-        }
+        expect(qDeveloperConfig.credentials).to.not.be.undefined
     })
 
     it('sends message with correct parameters', async () => {
@@ -276,55 +274,55 @@ describe('IAM', () => {
         expect(streamingClientService['inflightRequests'].size).to.eq(0)
     })
 
-    // it('uses expireTime from credentials when available', async () => {
-    //     // Get the credential provider function from the client config
-    //     const credentialProvider = streamingClientService.client.config.credentials
-    //     expect(credentialProvider).to.not.be.undefined
+    it('uses expireTime from credentials when available', async () => {
+        // Get the credential provider function from the client config
+        const credentialProvider = qDeveloperConfig.credentials
+        expect(credentialProvider).to.not.be.undefined
 
-    //     // Reset call count on the stub
-    //     features.credentialsProvider.getCredentials.resetHistory()
+        // Reset call count on the stub
+        features.credentialsProvider.getCredentials.resetHistory()
 
-    //     // Set up credentials with expireTime
-    //     const futureDate = new Date(Date.now() + 3600000) // 1 hour in the future
-    //     const CREDENTIALS_WITH_EXPIRY = {
-    //         ...MOCKED_IAM_CREDENTIALS,
-    //         expireTime: futureDate.toISOString(),
-    //     }
-    //     features.credentialsProvider.getCredentials.withArgs('iam').returns(CREDENTIALS_WITH_EXPIRY)
+        // Set up credentials with expireTime
+        const futureDate = new Date(Date.now() + 3600000) // 1 hour in the future
+        const CREDENTIALS_WITH_EXPIRY = {
+            ...MOCKED_IAM_CREDENTIALS,
+            expireTime: futureDate.toISOString(),
+        }
+        features.credentialsProvider.getCredentials.withArgs('iam').returns(CREDENTIALS_WITH_EXPIRY)
 
-    //     // Call the credential provider
-    //     const credentialsPromise = (credentialProvider as any)()
-    //     await clock.tickAsync(TIME_TO_ADVANCE_MS)
-    //     const credentials = await credentialsPromise
+        // Call the credential provider
+        const credentialsPromise = (credentialProvider as any)()
+        await clock.tickAsync(TIME_TO_ADVANCE_MS)
+        const credentials = await credentialsPromise
 
-    //     // Verify expiration is set to the expireTime from credentials
-    //     expect(credentials.expiration).to.be.instanceOf(Date)
-    //     expect(credentials.expiration.getTime()).to.equal(futureDate.getTime())
-    // })
+        // Verify expiration is set to the expireTime from credentials
+        expect(credentials.expiration).to.be.instanceOf(Date)
+        expect(credentials.expiration.getTime()).to.equal(futureDate.getTime())
+    })
 
-    // it('falls back to current date when expireTime is not available', async () => {
-    //     // Get the credential provider function from the client config
-    //     const credentialProvider = streamingClientService.client.config.credentials
-    //     expect(credentialProvider).to.not.be.undefined
+    it('falls back to current date when expireTime is not available', async () => {
+        // Get the credential provider function from the client config
+        const credentialProvider = qDeveloperConfig.credentials
+        expect(credentialProvider).to.not.be.undefined
 
-    //     // Reset call count on the stub
-    //     features.credentialsProvider.getCredentials.resetHistory()
+        // Reset call count on the stub
+        features.credentialsProvider.getCredentials.resetHistory()
 
-    //     // Set up credentials without expireTime
-    //     features.credentialsProvider.getCredentials.withArgs('iam').returns(MOCKED_IAM_CREDENTIALS)
+        // Set up credentials without expireTime
+        features.credentialsProvider.getCredentials.withArgs('iam').returns(MOCKED_IAM_CREDENTIALS)
 
-    //     // Set a fixed time for testing
-    //     const fixedNow = new Date()
-    //     clock.tick(0) // Ensure clock is at the fixed time
+        // Set a fixed time for testing
+        const fixedNow = new Date()
+        clock.tick(0) // Ensure clock is at the fixed time
 
-    //     // Call the credential provider
-    //     const credentialsPromise = (credentialProvider as any)()
-    //     await clock.tickAsync(TIME_TO_ADVANCE_MS)
-    //     const credentials = await credentialsPromise
+        // Call the credential provider
+        const credentialsPromise = (credentialProvider as any)()
+        await clock.tickAsync(TIME_TO_ADVANCE_MS)
+        const credentials = await credentialsPromise
 
-    //     // Verify expiration is set to current date when expireTime is missing
-    //     expect(credentials.expiration).to.be.instanceOf(Date)
-    //     // The expiration should be very close to the current time
-    //     expect(credentials.expiration.getTime()).to.be.closeTo(fixedNow.getTime(), 100)
-    // })
+        // Verify expiration is set to current date when expireTime is missing
+        expect(credentials.expiration).to.be.instanceOf(Date)
+        // The expiration should be very close to the current time
+        expect(credentials.expiration.getTime()).to.be.closeTo(fixedNow.getTime(), 100)
+    })
 })

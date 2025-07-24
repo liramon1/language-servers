@@ -93,44 +93,6 @@ describe('getOriginFromClientInfo', () => {
     })
 })
 
-describe('getIAMCredentialsFromProvider', () => {
-    const mockIAMCredentials = {
-        accessKeyId: 'mock-access-key',
-        secretAccessKey: 'mock-secret-key',
-        sessionToken: 'mock-session-token',
-    }
-
-    // it('returns the IAM credentials from the provider', () => {
-    //     const mockCredentialsProvider: CredentialsProvider = {
-    //         hasCredentials: sinon.stub().withArgs('bearer').returns(true),
-    //         getCredentials: sinon.stub().returns(mockIAMCredentials),
-    //         getConnectionMetadata: sinon.stub(),
-    //         getConnectionType: sinon.stub(),
-    //         onCredentialsDeleted: sinon.stub(),
-    //     }
-
-    //     const result = getIAMCredentialsFromProvider(mockCredentialsProvider)
-
-    //     assert.deepStrictEqual(result, {
-    //         accessKeyId: 'mock-access-key',
-    //         secretAccessKey: 'mock-secret-key',
-    //         sessionToken: 'mock-session-token',
-    //     })
-    // })
-
-    // it('throws an error if the credentials provider does not have IAM credentials', () => {
-    //     const mockCredentialsProvider: CredentialsProvider = {
-    //         hasCredentials: sinon.stub().returns(false),
-    //         getCredentials: sinon.stub().returns(mockIAMCredentials),
-    //         getConnectionMetadata: sinon.stub(),
-    //         getConnectionType: sinon.stub(),
-    //         onCredentialsDeleted: sinon.stub(),
-    //     }
-
-    //     assert.throws(() => getIAMCredentialsFromProvider(mockCredentialsProvider), Error, 'Missing IAM creds')
-    // })
-})
-
 describe('getSsoConnectionType', () => {
     const mockToken = 'mockToken'
     const mockCredsProvider: CredentialsProvider = {

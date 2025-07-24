@@ -83,27 +83,37 @@ export class StreamingClientService extends StreamingClientServiceBase {
         )
 
         if (credentialsProvider.hasCredentials('iam')) {
-            const credentials = credentialsProvider.getCredentials('iam') as Credentials
+            // Create a credential provider that fetches fresh credentials on each request
+            const iamCredentialProvider: AwsCredentialIdentityProvider = async (): Promise<AwsCredentialIdentity> => {
+                const creds = (await credentialsProvider.getCredentials('iam')) as Credentials
+                logging.log(`Fetching new IAM credentials`)
+                return {
+                    accessKeyId: creds.accessKeyId,
+                    secretAccessKey: creds.secretAccessKey,
+                    sessionToken: creds.sessionToken,
+                    expiration: creds.expireTime ? new Date(creds.expireTime) : new Date(), // Force refresh on each request if creds do not have expiration time
+                }
+            }
+
             this.client = sdkInitializator(QDeveloperStreaming, {
                 region: region,
                 endpoint: endpoint,
                 // Do not pass credentials directly or you will get "object is not extensible" error when AWS SDK tries to modify frozen credentials
-                credentials: {
-                    accessKeyId: credentials.accessKeyId,
-                    secretAccessKey: credentials.secretAccessKey,
-                    sessionToken: credentials.sessionToken,
-                },
+                credentials: iamCredentialProvider,
                 retryStrategy: new ConfiguredRetryStrategy(0, (attempt: number) => 500 + attempt ** 10),
-            }) as QDeveloperStreaming
+            })
         }
         // Use bearer token if credentials type is 'bearer' or undefined
         else {
             const tokenProvider = async () => {
-                const creds = credentialsProvider.getCredentials('bearer') as BearerCredentials
-                const token = creds.token
+                const token = getBearerTokenFromProvider(credentialsProvider)
                 // without setting expiration, the tokenProvider will only be called once
                 return { token, expiration: new Date() }
             }
+
+            logging.log(
+                `Passing client for class CodeWhispererStreaming to sdkInitializator (v3) for additional setup (e.g. proxy)`
+            )
             this.client = sdkInitializator(CodeWhispererStreaming, {
                 region,
                 endpoint,
@@ -145,13 +155,13 @@ export class StreamingClientService extends StreamingClientServiceBase {
             const client = this.client as CodeWhispererStreaming
             try {
                 const response = await client.sendMessage(
-                    { ...request, profileArn: this.profileArn } as SendMessageCommandInputCodeWhispererStreaming,
+                    { ...request, profileArn: this.profileArn },
                     {
                         abortSignal: controller.signal,
                     }
                 )
 
-                return response as SendMessageCommandOutputCodeWhispererStreaming
+                return response
             } catch (e) {
                 if (isUsageLimitError(e)) {
                     throw new AmazonQUsageLimitError(e)
@@ -162,13 +172,13 @@ export class StreamingClientService extends StreamingClientServiceBase {
             }
         } else if (this.getCredentialsType() === 'iam') {
             const client = this.client as QDeveloperStreaming
-            const response = await client.sendMessage(request as SendMessageCommandInputQDeveloperStreaming, {
+            const response = await client.sendMessage(request, {
                 abortSignal: controller.signal,
             })
 
             this.inflightRequests.delete(controller)
 
-            return response as SendMessageCommandOutputQDeveloperStreaming
+            return response
         } else {
             throw new Error('invalid credentialsType in sendMessage')
         }

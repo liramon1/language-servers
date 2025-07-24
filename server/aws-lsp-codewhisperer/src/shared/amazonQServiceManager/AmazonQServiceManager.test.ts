@@ -1078,20 +1078,18 @@ describe('IAM', () => {
             sinon.assert.calledOnce(updateCachedServiceConfigSpy)
         })
 
-        // it('should initialize the streaming client only once', () => {
-        //     setCredentials()
-        //     // Mock getIAMCredentialsFromProvider to return dummy credentials
-        //     const getIAMCredentialsStub = sinon.stub(utils, 'getIAMCredentialsFromProvider').returns({
-        //         accessKeyId: 'dummy-access-key',
-        //         secretAccessKey: 'dummy-secret-key',
-        //         sessionToken: 'dummy-session-token',
-        //     })
+        it('should initialize the streaming client only once', () => {
+            setCredentials()
+            // Mock the credentials provider to return credentials when requested
+            features.credentialsProvider.getCredentials.withArgs('iam').returns({
+                accessKeyId: 'dummy-access-key',
+                secretAccessKey: 'dummy-secret-key',
+                sessionToken: 'dummy-session-token',
+            })
 
-        //     const streamingClient = serviceManager.getStreamingClient()
+            const streamingClient = serviceManager.getStreamingClient()
 
-        //     assert.deepStrictEqual(serviceManager.getStreamingClient(), streamingClient)
-
-        //     getIAMCredentialsStub.restore()
-        // })
+            assert.deepStrictEqual(serviceManager.getStreamingClient(), streamingClient)
+        })
     })
 })
