@@ -168,6 +168,14 @@ export class IdentityService {
                 emitMetric('Cancelled', null)
             })
 
+            // If credential override is provided, return it
+            if (options.credentialOverride) {
+                return {
+                    credential: { id: '', kinds: [], credentials: options.credentialOverride },
+                    updateCredentialsParams: { data: options.credentialOverride, encrypted: false },
+                }
+            }
+
             // Get the profile with provided name
             const profileData = await this.profileStore.load()
             const profile = profileData.profiles.find(p => p.name === params.profileName)
