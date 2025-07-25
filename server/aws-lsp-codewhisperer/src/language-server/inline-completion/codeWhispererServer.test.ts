@@ -15,7 +15,7 @@ import sinon, { StubbedInstance } from 'ts-sinon'
 import { CONTEXT_CHARACTERS_LIMIT, CodewhispererServerFactory } from './codeWhispererServer'
 import {
     CodeWhispererServiceBase,
-    CodeWhispererServiceToken,
+    CodeWhispererService,
     ResponseContext,
     Suggestion,
     SuggestionType,
@@ -772,8 +772,8 @@ describe('CodeWhisperer Server', () => {
         describe('Supplemental Context', () => {
             it('should send supplemental context when using token authentication', async () => {
                 const test_service = sinon.createStubInstance(
-                    CodeWhispererServiceToken
-                ) as StubbedInstance<CodeWhispererServiceToken>
+                    CodeWhispererService
+                ) as StubbedInstance<CodeWhispererService>
 
                 test_service.generateSuggestions.returns(
                     Promise.resolve({
@@ -2326,7 +2326,7 @@ describe('CodeWhisperer Server', () => {
 
         beforeEach(async () => {
             // Set up the server with a mock service, returning predefined recommendations
-            service = sinon.createStubInstance(CodeWhispererServiceToken) as StubbedInstance<CodeWhispererServiceToken>
+            service = sinon.createStubInstance(CodeWhispererService) as StubbedInstance<CodeWhispererService>
 
             service.generateSuggestions.returns(
                 Promise.resolve({
@@ -2416,52 +2416,6 @@ describe('CodeWhisperer Server', () => {
                 },
             }
 
-            sinon.assert.calledOnceWithExactly(service.generateSuggestions, expectedGenerateSuggestionsRequest)
-        })
-
-        it('should include EDITS in predictionTypes when previous session was accepted EDIT', async () => {
-            const session = sessionManager.createSession(SAMPLE_SESSION_DATA)
-            sessionManager.closeSession(session)
-            const currentSession = sessionManager.getCurrentSession()
-            if (currentSession) {
-                currentSession.suggestionsStates = new Map([['test-suggestion-id', 'Accept']])
-                currentSession.suggestionType = SuggestionType.EDIT
-            }
-
-            await features.doInlineCompletionWithReferences(
-                {
-                    textDocument: { uri: SOME_FILE.uri },
-                    position: { line: 0, character: 0 },
-                    context: { triggerKind: InlineCompletionTriggerKind.Invoked },
-                },
-                CancellationToken.None
-            )
-
-            const expectedGenerateSuggestionsRequest = {
-                fileContext: {
-                    fileUri: SOME_FILE.uri,
-                    filename: URI.parse(SOME_FILE.uri).path.substring(1),
-                    programmingLanguage: { languageName: 'csharp' },
-                    leftFileContent: '',
-                    rightFileContent: HELLO_WORLD_IN_CSHARP,
-                },
-                maxResults: 5,
-                supplementalContexts: [],
-                predictionTypes: ['EDITS'],
-                editorState: {
-                    document: {
-                        relativeFilePath: SOME_FILE.uri,
-                        programmingLanguage: { languageName: 'csharp' },
-                        text: HELLO_WORLD_IN_CSHARP,
-                    },
-                    cursorState: {
-                        position: {
-                            line: 0,
-                            character: 0,
-                        },
-                    },
-                },
-            }
             sinon.assert.calledOnceWithExactly(service.generateSuggestions, expectedGenerateSuggestionsRequest)
         })
     })

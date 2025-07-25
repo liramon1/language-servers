@@ -37,7 +37,7 @@ import { TestFeatures } from '@aws/language-server-runtimes/testing'
 import * as assert from 'assert'
 import {
     createIterableResponse,
-    setCredentialsForAmazonQTokenServiceManagerFactory,
+    setTokenCredentialsForAmazonQServiceManagerFactory,
     setIamCredentialsForAmazonQServiceManagerFactory,
 } from '../../shared/testUtils'
 import sinon from 'ts-sinon'
@@ -49,8 +49,7 @@ import { DocumentContextExtractor } from '../chat/contexts/documentContext'
 import * as utils from '../chat/utils'
 import { DEFAULT_HELP_FOLLOW_UP_PROMPT, HELP_MESSAGE } from '../chat/constants'
 import { TelemetryService } from '../../shared/telemetry/telemetryService'
-import { AmazonQTokenServiceManager } from '../../shared/amazonQServiceManager/AmazonQTokenServiceManager'
-import { AmazonQIAMServiceManager } from '../../shared/amazonQServiceManager/AmazonQIAMServiceManager'
+import { AmazonQServiceManager } from '../../shared/amazonQServiceManager/AmazonQServiceManager'
 import { TabBarController } from './tabBarController'
 import { getUserPromptsDirectory, promptFileExtension } from './context/contextUtils'
 import { AdditionalContextProvider } from './context/additionalContextProvider'
@@ -174,7 +173,7 @@ describe('AgenticChatController', () => {
     let emitConversationMetricStub: sinon.SinonStub
 
     let testFeatures: TestFeatures
-    let serviceManager: AmazonQTokenServiceManager
+    let serviceManager: AmazonQServiceManager
     let chatSessionManagementService: ChatSessionManagementService
     let chatController: AgenticChatController
     let telemetryService: TelemetryService
@@ -183,7 +182,7 @@ describe('AgenticChatController', () => {
     let getMessagesStub: sinon.SinonStub
     let addMessageStub: sinon.SinonStub
 
-    const setCredentials = setCredentialsForAmazonQTokenServiceManagerFactory(() => testFeatures)
+    const setTokenCredentials = setTokenCredentialsForAmazonQServiceManagerFactory(() => testFeatures)
     const setIamCredentials = setIamCredentialsForAmazonQServiceManagerFactory(() => testFeatures)
 
     beforeEach(() => {
@@ -277,7 +276,7 @@ describe('AgenticChatController', () => {
         }
         testFeatures.lsp.window.showDocument = sinon.stub()
         testFeatures.setClientParams(cachedInitializeParams)
-        setCredentials('builderId')
+        setTokenCredentials('builderId')
 
         activeTabSpy = sinon.spy(ChatTelemetryController.prototype, 'activeTabId', ['get', 'set'])
         removeConversationSpy = sinon.spy(ChatTelemetryController.prototype, 'removeConversation')
@@ -286,14 +285,14 @@ describe('AgenticChatController', () => {
         disposeStub = sinon.stub(ChatSessionService.prototype, 'dispose')
         sinon.stub(ContextCommandsProvider.prototype, 'maybeUpdateCodeSymbols').resolves()
 
-        AmazonQTokenServiceManager.resetInstance()
+        AmazonQServiceManager.resetInstance()
 
-        serviceManager = AmazonQTokenServiceManager.initInstance(testFeatures)
+        serviceManager = AmazonQServiceManager.initInstance(testFeatures)
         chatSessionManagementService = ChatSessionManagementService.getInstance()
         chatSessionManagementService.withAmazonQServiceManager(serviceManager)
 
         const mockCredentialsProvider: CredentialsProvider = {
-            hasCredentials: sinon.stub().returns(true),
+            hasCredentials: sinon.stub().withArgs('bearer').returns(true),
             getCredentials: sinon.stub().returns({ token: 'token' }),
             getConnectionMetadata: sinon.stub().returns({
                 sso: {
@@ -496,6 +495,7 @@ describe('AgenticChatController', () => {
                 {
                     userInputMessage: {
                         content: 'Previous question',
+                        images: [],
                         origin: 'IDE',
                         userInputMessageContext: { toolResults: [] },
                         userIntent: undefined,
@@ -545,6 +545,7 @@ describe('AgenticChatController', () => {
                 {
                     userInputMessage: {
                         content: 'Previous question',
+                        images: [],
                         origin: 'IDE',
                         userInputMessageContext: { toolResults: [] },
                         userIntent: undefined,
@@ -1808,6 +1809,117 @@ describe('AgenticChatController', () => {
             assert.strictEqual(request.conversationState?.history?.length || 0, 3)
             assert.strictEqual(result, 298000)
         })
+
+        it('should truncate images when they exceed budget', () => {
+            const request: GenerateAssistantResponseCommandInput = {
+                conversationState: {
+                    currentMessage: {
+                        userInputMessage: {
+                            content: 'a'.repeat(493_400),
+                            images: [
+                                {
+                                    format: 'png',
+                                    source: {
+                                        bytes: new Uint8Array(1000), // 3.3 chars
+                                    },
+                                },
+                                {
+                                    format: 'png',
+                                    source: {
+                                        bytes: new Uint8Array(2000000), //6600 chars - should be removed
+                                    },
+                                },
+                                {
+                                    format: 'png',
+                                    source: {
+                                        bytes: new Uint8Array(1000), // 3.3 chars
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                    chatTriggerType: undefined,
+                },
+            }
+            const result = chatController.truncateRequest(request)
+
+            // Should only keep the first and third images (small ones)
+            assert.strictEqual(request.conversationState?.currentMessage?.userInputMessage?.images?.length, 2)
+            assert.strictEqual(result, 500000 - 493400 - 3.3 - 3.3) // remaining budget after content and images
+        })
+
+        it('should handle images without bytes', () => {
+            const request: GenerateAssistantResponseCommandInput = {
+                conversationState: {
+                    currentMessage: {
+                        userInputMessage: {
+                            content: 'a'.repeat(400_000),
+                            images: [
+                                {
+                                    format: 'png',
+                                    source: {
+                                        bytes: null as any,
+                                    },
+                                },
+                                {
+                                    format: 'png',
+                                    source: {
+                                        bytes: new Uint8Array(1000), // 3.3 chars
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                    chatTriggerType: undefined,
+                },
+            }
+            const result = chatController.truncateRequest(request)
+
+            // Should keep both images since the first one has 0 chars
+            assert.strictEqual(request.conversationState?.currentMessage?.userInputMessage?.images?.length, 2)
+            assert.strictEqual(result, 500000 - 400000 - 3.3) // remaining budget after content and second image
+        })
+
+        it('should truncate relevantDocuments and images together with equal priority', () => {
+            // 400_000 for content, 100 for doc, 3.3 for image, 100_000 for doc (should be truncated)
+            const request: GenerateAssistantResponseCommandInput = {
+                conversationState: {
+                    currentMessage: {
+                        userInputMessage: {
+                            content: 'a'.repeat(400_000),
+                            userInputMessageContext: {
+                                editorState: {
+                                    relevantDocuments: [
+                                        { relativeFilePath: 'a', text: 'a'.repeat(100) },
+                                        { relativeFilePath: 'b', text: 'a'.repeat(100_000) }, // should be truncated
+                                    ],
+                                },
+                            },
+                            images: [
+                                {
+                                    format: 'png',
+                                    source: { bytes: new Uint8Array(1000000000) }, // 3300000 chars
+                                },
+                                {
+                                    format: 'png',
+                                    source: { bytes: new Uint8Array(1000) }, // 3.3 chars
+                                },
+                            ],
+                        },
+                    },
+                    chatTriggerType: undefined,
+                },
+            }
+            const result = chatController.truncateRequest(request)
+            // Only the first doc and the image should fit
+            assert.strictEqual(
+                request.conversationState?.currentMessage?.userInputMessage?.userInputMessageContext?.editorState
+                    ?.relevantDocuments?.length,
+                1
+            )
+            assert.strictEqual(request.conversationState?.currentMessage?.userInputMessage?.images?.length, 1)
+            assert.strictEqual(result, 500000 - 400000 - 100 - 3.3)
+        })
     })
 
     describe('onCreatePrompt', () => {
@@ -2770,7 +2882,7 @@ ${' '.repeat(8)}}
             session.modelId = 'CLAUDE_3_7_SONNET_20250219_V1_0'
 
             // Stub the getRegion method
-            tokenServiceManagerStub = sinon.stub(AmazonQTokenServiceManager.prototype, 'getRegion')
+            tokenServiceManagerStub = sinon.stub(AmazonQServiceManager.prototype, 'getRegion')
         })
 
         afterEach(() => {
@@ -2892,7 +3004,7 @@ ${' '.repeat(8)}}
     })
 
     describe('IAM Authentication', () => {
-        let iamServiceManager: AmazonQIAMServiceManager
+        let iamServiceManager: AmazonQServiceManager
         let iamChatController: AgenticChatController
         let iamChatSessionManagementService: ChatSessionManagementService
 
@@ -2917,8 +3029,8 @@ ${' '.repeat(8)}}
             ChatSessionManagementService.reset()
 
             // Create IAM service manager
-            AmazonQIAMServiceManager.resetInstance()
-            iamServiceManager = AmazonQIAMServiceManager.initInstance(testFeatures)
+            AmazonQServiceManager.resetInstance()
+            iamServiceManager = AmazonQServiceManager.initInstance(testFeatures)
 
             // Create chat session management service with IAM service manager
             iamChatSessionManagementService = ChatSessionManagementService.getInstance()
@@ -2935,7 +3047,7 @@ ${' '.repeat(8)}}
         afterEach(() => {
             iamChatController.dispose()
             ChatSessionManagementService.reset()
-            AmazonQIAMServiceManager.resetInstance()
+            AmazonQServiceManager.resetInstance()
         })
 
         it('creates a session with IAM service manager', () => {

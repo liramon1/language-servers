@@ -9,9 +9,7 @@ import { ChatSessionManagementService } from '../chat/chatSessionManagementServi
 import { CLEAR_QUICK_ACTION, COMPACT_QUICK_ACTION, HELP_QUICK_ACTION } from '../chat/quickActions'
 import { TelemetryService } from '../../shared/telemetry/telemetryService'
 import { makeUserContextObject } from '../../shared/telemetryUtils'
-import { AmazonQBaseServiceManager } from '../../shared/amazonQServiceManager/BaseAmazonQServiceManager'
-import { getOrThrowBaseTokenServiceManager } from '../../shared/amazonQServiceManager/AmazonQTokenServiceManager'
-import { getOrThrowBaseIAMServiceManager } from '../../shared/amazonQServiceManager/AmazonQIAMServiceManager'
+import { AmazonQServiceManager } from '../../shared/amazonQServiceManager/AmazonQServiceManager'
 import { AmazonQWorkspaceConfig } from '../../shared/amazonQServiceManager/configurationUtils'
 import { TabBarController } from './tabBarController'
 import { AmazonQServiceInitializationError } from '../../shared/amazonQServiceManager/errors'
@@ -26,13 +24,34 @@ export function enabledReroute(params: InitializeParams | undefined): boolean {
     return qCapabilities?.reroute || false
 }
 
+export function enabledCodeReviewInChat(params: InitializeParams | undefined): boolean {
+    const qCapabilities = params?.initializationOptions?.aws?.awsClientCapabilities?.q as
+        | QClientCapabilities
+        | undefined
+    return qCapabilities?.codeReviewInChat || false
+}
+
+export function enabledCompaction(params: InitializeParams | undefined): boolean {
+    const qCapabilities = params?.initializationOptions?.aws?.awsClientCapabilities?.q as
+        | QClientCapabilities
+        | undefined
+    return qCapabilities?.compaction || false
+}
+
+export function enableShortcut(params: InitializeParams | undefined): boolean {
+    const qCapabilities = params?.initializationOptions?.aws?.awsClientCapabilities?.q as
+        | QClientCapabilities
+        | undefined
+    return qCapabilities?.shortcut || false
+}
+
 export const QAgenticChatServer =
     // prettier-ignore
     (): Server => features => {
         const { chat, credentialsProvider, telemetry, logging, lsp, runtime, agent } = features
 
-        // AmazonQTokenServiceManager and TelemetryService are initialized in `onInitialized` handler to make sure Language Server connection is started
-        let amazonQServiceManager: AmazonQBaseServiceManager
+        // AmazonQServiceManager and TelemetryService are initialized in `onInitialized` handler to make sure Language Server connection is started
+        let amazonQServiceManager: AmazonQServiceManager
         let telemetryService: TelemetryService
 
         let chatController: AgenticChatController
@@ -40,6 +59,12 @@ export const QAgenticChatServer =
 
         lsp.addInitializer((params: InitializeParams) => {
             const rerouteEnabled = enabledReroute(params)
+            const codeReviewInChatEnabled = enabledCodeReviewInChat(params)
+            const quickActions = [HELP_QUICK_ACTION, CLEAR_QUICK_ACTION]
+            if (enabledCompaction(params)) {
+                quickActions.push(COMPACT_QUICK_ACTION)
+            }
+            const shortcutEnabled = enableShortcut(params)
 
             return {
                 capabilities: {
@@ -54,7 +79,7 @@ export const QAgenticChatServer =
                         quickActions: {
                             quickActionsCommandGroups: [
                                 {
-                                    commands: [HELP_QUICK_ACTION, CLEAR_QUICK_ACTION, COMPACT_QUICK_ACTION],
+                                    commands: quickActions,
                                 },
                             ],
                         },
@@ -63,7 +88,10 @@ export const QAgenticChatServer =
                         modelSelection: true,
                         history: true,
                         export: TabBarController.enableChatExport(params),
-                        reroute: rerouteEnabled
+                        shortcut: shortcutEnabled,
+                        showLogs: TabBarController.enableShowLogs(params),
+                        reroute: rerouteEnabled,
+                        codeReviewInChat: codeReviewInChatEnabled
                     },
                 },
             }
@@ -76,8 +104,7 @@ export const QAgenticChatServer =
 
         lsp.onInitialized(async () => {
             // Get initialized service manager and inject it to chatSessionManagementService to pass it down
-            logging.info(`In IAM Auth mode: ${isUsingIAMAuth()}`)
-            amazonQServiceManager = isUsingIAMAuth() ? getOrThrowBaseIAMServiceManager() : getOrThrowBaseTokenServiceManager()
+            amazonQServiceManager = AmazonQServiceManager.getInstance()
             chatSessionManagementService =
                 ChatSessionManagementService.getInstance().withAmazonQServiceManager(amazonQServiceManager, features.lsp)
 

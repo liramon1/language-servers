@@ -17,9 +17,9 @@ import {
     IdeDiagnostic,
 } from '@aws/language-server-runtimes/server-interface'
 import { AWSError } from 'aws-sdk'
-import { autoTrigger, getAutoTriggerType, triggerType } from './auto-trigger/autoTrigger'
+import { autoTrigger, getAutoTriggerType, getNormalizeOsName, triggerType } from './auto-trigger/autoTrigger'
 import {
-    CodeWhispererServiceToken,
+    CodeWhispererService,
     GenerateSuggestionsRequest,
     GenerateSuggestionsResponse,
     Suggestion,
@@ -47,14 +47,10 @@ import {
     AmazonQServiceConnectionExpiredError,
     AmazonQServiceInitializationError,
 } from '../../shared/amazonQServiceManager/errors'
-import {
-    AmazonQBaseServiceManager,
-    QServiceManagerFeatures,
-} from '../../shared/amazonQServiceManager/BaseAmazonQServiceManager'
-import { getOrThrowBaseTokenServiceManager } from '../../shared/amazonQServiceManager/AmazonQTokenServiceManager'
+import { AmazonQBaseServiceManager } from '../../shared/amazonQServiceManager/BaseAmazonQServiceManager'
+import { getOrThrowBaseServiceManager } from '../../shared/amazonQServiceManager/AmazonQServiceManager'
 import { AmazonQWorkspaceConfig } from '../../shared/amazonQServiceManager/configurationUtils'
 import { hasConnectionExpired } from '../../shared/utils'
-import { getOrThrowBaseIAMServiceManager } from '../../shared/amazonQServiceManager/AmazonQIAMServiceManager'
 import { WorkspaceFolderManager } from '../workspaceContext/workspaceFolderManager'
 import path = require('path')
 import { getRelativePath } from '../workspaceContext/util'
@@ -313,12 +309,10 @@ export const CodewhispererServerFactory =
     ({ credentialsProvider, lsp, workspace, telemetry, logging, runtime, sdkInitializator }) => {
         let lastUserModificationTime: number
         let timeSinceLastUserModification: number = 0
-        // Threshold to avoid getting the same suggestion type due to unexpected issue
-        const timeSinceCloseTimeEditStreakThreshold: number = 2000
 
         const sessionManager = SessionManager.getInstance()
 
-        // AmazonQTokenServiceManager and TelemetryService are initialized in `onInitialized` handler to make sure Language Server connection is started
+        // AmazonQServiceManager and TelemetryService are initialized in `onInitialized` handler to make sure Language Server connection is started
         let amazonQServiceManager: AmazonQBaseServiceManager
         let telemetryService: TelemetryService
 
@@ -444,8 +438,6 @@ export const CodewhispererServerFactory =
 
                     const previousSession = sessionManager.getPreviousSession()
                     const previousDecision = previousSession?.getAggregatedUserTriggerDecision() ?? ''
-                    const previousSuggestionType = previousSession?.suggestionType ?? ''
-                    const previousCloseTime = previousSession?.closeTime
                     let ideCategory: string | undefined = ''
                     const initializeParams = lsp.getClientInitializeParams()
                     if (initializeParams !== undefined) {
@@ -464,7 +456,7 @@ export const CodewhispererServerFactory =
                             lineNum: params.position.line, // the line number of the invocation, this is the line of the cursor
                             char: triggerCharacters, // Add the character just inserted, if any, before the invication position
                             ide: ideCategory ?? '',
-                            os: '', // TODO: We should get this in a platform-agnostic way (i.e., compatible with the browser)
+                            os: getNormalizeOsName(),
                             previousDecision, // The last decision by the user on the previous invocation
                             triggerType: codewhispererAutoTriggerType, // The 2 trigger types currently influencing the Auto-Trigger are SpecialCharacter and Enter
                         },
@@ -475,7 +467,7 @@ export const CodewhispererServerFactory =
                         isAutomaticLspTriggerKind &&
                         codewhispererAutoTriggerType === 'Classifier' &&
                         !autoTriggerResult.shouldTrigger &&
-                        !(editsEnabled && codeWhispererService instanceof CodeWhispererServiceToken) // There is still potentially a Edit trigger without Completion if NEP is enabled (current only BearerTokenClient)
+                        !(editsEnabled && codeWhispererService instanceof CodeWhispererService) // There is still potentially a Edit trigger without Completion if NEP is enabled (current only BearerTokenClient)
                     ) {
                         return EMPTY_RESULT
                     }
@@ -485,7 +477,7 @@ export const CodewhispererServerFactory =
 
                     // supplementalContext available only via token authentication
                     const supplementalContextPromise =
-                        codeWhispererService instanceof CodeWhispererServiceToken
+                        codeWhispererService instanceof CodeWhispererService
                             ? fetchSupplementalContext(
                                   textDocument,
                                   params.position,
@@ -503,7 +495,7 @@ export const CodewhispererServerFactory =
 
                     const supplementalContext = await supplementalContextPromise
                     // TODO: logging
-                    if (codeWhispererService instanceof CodeWhispererServiceToken) {
+                    if (codeWhispererService instanceof CodeWhispererService) {
                         const supplementalContextItems = supplementalContext?.supplementalContextItems || []
                         requestContext.supplementalContexts = [
                             ...supplementalContextItems.map(v => ({
@@ -515,42 +507,33 @@ export const CodewhispererServerFactory =
                         if (editsEnabled) {
                             const predictionTypes: string[][] = []
 
+                            /**
+                             * Manual trigger - should always have 'Completions'
+                             * Auto trigger
+                             *  - Classifier - should have 'Completions' when classifier evalualte to true given the editor's states
+                             *  - Others - should always have 'Completions'
+                             */
                             if (
-                                previousDecision === 'Accept' &&
-                                previousSuggestionType === SuggestionType.EDIT &&
-                                previousCloseTime &&
-                                new Date().getTime() - previousCloseTime < timeSinceCloseTimeEditStreakThreshold
+                                !isAutomaticLspTriggerKind ||
+                                (isAutomaticLspTriggerKind && codewhispererAutoTriggerType !== 'Classifier') ||
+                                (isAutomaticLspTriggerKind &&
+                                    codewhispererAutoTriggerType === 'Classifier' &&
+                                    autoTriggerResult.shouldTrigger)
                             ) {
+                                predictionTypes.push(['COMPLETIONS'])
+                            }
+
+                            const editPredictionAutoTriggerResult = editPredictionAutoTrigger({
+                                fileContext: fileContext,
+                                lineNum: params.position.line,
+                                char: triggerCharacters,
+                                previousDecision: previousDecision,
+                                cursorHistory: cursorTracker,
+                                recentEdits: recentEditTracker,
+                            })
+
+                            if (editPredictionAutoTriggerResult.shouldTrigger) {
                                 predictionTypes.push(['EDITS'])
-                            } else {
-                                /**
-                                 * Manual trigger - should always have 'Completions'
-                                 * Auto trigger
-                                 *  - Classifier - should have 'Completions' when classifier evalualte to true given the editor's states
-                                 *  - Others - should always have 'Completions'
-                                 */
-                                if (
-                                    !isAutomaticLspTriggerKind ||
-                                    (isAutomaticLspTriggerKind && codewhispererAutoTriggerType !== 'Classifier') ||
-                                    (isAutomaticLspTriggerKind &&
-                                        codewhispererAutoTriggerType === 'Classifier' &&
-                                        autoTriggerResult.shouldTrigger)
-                                ) {
-                                    predictionTypes.push(['COMPLETIONS'])
-                                }
-
-                                const editPredictionAutoTriggerResult = editPredictionAutoTrigger({
-                                    fileContext: fileContext,
-                                    lineNum: params.position.line,
-                                    char: triggerCharacters,
-                                    previousDecision: previousDecision,
-                                    cursorHistory: cursorTracker,
-                                    recentEdits: recentEditTracker,
-                                })
-
-                                if (editPredictionAutoTriggerResult.shouldTrigger) {
-                                    predictionTypes.push(['EDITS'])
-                                }
                             }
 
                             if (predictionTypes.length === 0) {
@@ -748,7 +731,10 @@ export const CodewhispererServerFactory =
             }
 
             // session was closed by user already made decisions consequent completion request before new paginated API response was received
-            if (session.state === 'CLOSED' || session.state === 'DISCARD') {
+            if (
+                session.suggestionType !== SuggestionType.EDIT && // TODO: this is a shorterm fix to allow Edits tabtabtab experience, however the real solution is to manage such sessions correctly
+                (session.state === 'CLOSED' || session.state === 'DISCARD')
+            ) {
                 return EMPTY_RESULT
             }
 
@@ -1055,9 +1041,9 @@ export const CodewhispererServerFactory =
             }
             logging.debug(`CodePercentageTracker customizationArn updated to ${customizationArn}`)
             /*
-                The flag enableTelemetryEventsToDestination is set to true temporarily. It's value will be determined through destination
-                configuration post all events migration to STE. It'll be replaced by qConfig['enableTelemetryEventsToDestination'] === true
-            */
+                        The flag enableTelemetryEventsToDestination is set to true temporarily. It's value will be determined through destination
+                        configuration post all events migration to STE. It'll be replaced by qConfig['enableTelemetryEventsToDestination'] === true
+                    */
             // const enableTelemetryEventsToDestination = true
             // telemetryService.updateEnableTelemetryEventsToDestination(enableTelemetryEventsToDestination)
             telemetryService.updateOptOutPreference(optOutTelemetryPreference)
@@ -1211,5 +1197,4 @@ export const CodewhispererServerFactory =
         }
     }
 
-export const CodeWhispererServerIAM = CodewhispererServerFactory(getOrThrowBaseIAMServiceManager)
-export const CodeWhispererServerToken = CodewhispererServerFactory(getOrThrowBaseTokenServiceManager)
+export const CodeWhispererServer = CodewhispererServerFactory(getOrThrowBaseServiceManager)
