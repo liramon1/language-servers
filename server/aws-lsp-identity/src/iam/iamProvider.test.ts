@@ -109,7 +109,7 @@ describe('IamProvider', () => {
         observability.telemetry = stubInterface<Telemetry>()
 
         handlers = stubInterface<iamUtils.IamHandlers>({
-            sendGetMfaCode: Promise.resolve({ code: 'mfa-code' }),
+            sendGetMfaCode: Promise.resolve({ code: 'mfa-code', mfaSerial: 'mfa-serial' }),
         })
 
         provider = spy(() => () => {
