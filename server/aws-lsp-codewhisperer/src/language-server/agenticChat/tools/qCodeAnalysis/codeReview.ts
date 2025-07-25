@@ -1,6 +1,6 @@
 /* eslint-disable import/no-nodejs-modules */
 
-import { CodeWhispererService } from '../../../../shared/codeWhispererService'
+import { CodeWhispererServiceToken } from '../../../../shared/codeWhispererService/codeWhispererServiceToken'
 import { Features } from '@aws/language-server-runtimes/server-interface/server'
 import {
     CODE_REVIEW_TOOL_NAME,
@@ -63,7 +63,7 @@ export class CodeReview {
     private readonly logging: Features['logging']
     private readonly telemetry: Features['telemetry']
     private readonly workspace: Features['workspace']
-    private codeWhispererClient?: CodeWhispererService
+    private codeWhispererClient?: CodeWhispererServiceToken
     private cancellationToken?: CancellationToken
     private writableStream?: WritableStream
 
@@ -155,7 +155,7 @@ export class CodeReview {
 
         this.writableStream = context.writableStream as WritableStream
 
-        this.codeWhispererClient = context.codeWhispererClient as CodeWhispererService
+        this.codeWhispererClient = context.codeWhispererClient as CodeWhispererServiceToken
         if (!this.codeWhispererClient) {
             throw new Error(CodeReview.ERROR_MESSAGES.MISSING_CLIENT)
         }

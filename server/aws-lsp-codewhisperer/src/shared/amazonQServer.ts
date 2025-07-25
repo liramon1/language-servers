@@ -20,10 +20,10 @@ export const AmazonQServiceServerFactory =
         }
 
         /*
-                 The service manager relies on client params to fully initialize, so the initialization needs
-                 to be deferred to the LSP handshake. Dependent servers may assume the service manager is 
-                 available when the initialized notification has been received.
-                */
+         The service manager relies on client params to fully initialize, so the initialization needs
+         to be deferred to the LSP handshake. Dependent servers may assume the service manager is 
+         available when the initialized notification has been received.
+        */
         lsp.addInitializer((_params: InitializeParams) => {
             amazonQServiceManager = serviceManager({
                 credentialsProvider,

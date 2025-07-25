@@ -7,7 +7,7 @@ import {
     ServerConfigurationProvider,
 } from './qConfigurationServer'
 import { TestFeatures } from '@aws/language-server-runtimes/testing'
-import { CodeWhispererService } from '../../shared/codeWhispererService'
+import { CodeWhispererServiceToken } from '../../shared/codeWhispererService/codeWhispererServiceToken'
 import {
     CancellationToken,
     CancellationTokenSource,
@@ -86,7 +86,7 @@ describe('QConfigurationServerToken', () => {
         AmazonQServiceManager.initInstance(testFeatures)
         amazonQServiceManager = AmazonQServiceManager.getInstance()
 
-        const codeWhispererService = stubInterface<CodeWhispererService>()
+        const codeWhispererService = stubInterface<CodeWhispererServiceToken>()
         const configurationServer: Server = QConfigurationServerToken()
 
         amazonQServiceManager.setServiceFactory(sinon.stub().returns(codeWhispererService))
@@ -216,7 +216,7 @@ describe('QConfigurationServerToken', () => {
 describe('ServerConfigurationProvider', () => {
     let serverConfigurationProvider: ServerConfigurationProvider
     let amazonQServiceManager: AmazonQServiceManager
-    let codeWhispererService: StubbedInstance<CodeWhispererService>
+    let codeWhispererService: StubbedInstance<CodeWhispererServiceToken>
     let testFeatures: TestFeatures
     let listAvailableProfilesHandlerSpy: sinon.SinonSpy
     let tokenSource: CancellationTokenSource
@@ -248,7 +248,7 @@ describe('ServerConfigurationProvider', () => {
 
     beforeEach(() => {
         tokenSource = new CancellationTokenSource()
-        codeWhispererService = stubInterface<CodeWhispererService>()
+        codeWhispererService = stubInterface<CodeWhispererServiceToken>()
         codeWhispererService.listAvailableCustomizations.resolves({
             customizations: mockCustomizations,
             $response: {} as any,

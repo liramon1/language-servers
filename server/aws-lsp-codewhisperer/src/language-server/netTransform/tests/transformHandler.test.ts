@@ -14,7 +14,7 @@ import * as fs from 'fs'
 import got from 'got'
 import { StubbedInstance, default as simon, stubInterface } from 'ts-sinon'
 import { StreamingClient, createStreamingClient } from '../../../client/streamingClient/codewhispererStreamingClient'
-import { CodeWhispererService } from '../../../shared/codeWhispererService'
+import { CodeWhispererServiceToken } from '../../../shared/codeWhispererService/codeWhispererServiceToken'
 import {
     CancelTransformRequest,
     CancellationJobStatus,
@@ -51,7 +51,7 @@ const testTransformId = 'test-transform-id'
 const payloadFileName = 'C:\\test.zip'
 
 describe('Test Transform handler ', () => {
-    let client: StubbedInstance<CodeWhispererService>
+    let client: StubbedInstance<CodeWhispererServiceToken>
     let workspace: StubbedInstance<Workspace>
     let runtime: StubbedInstance<Runtime>
     let transformHandler: TransformHandler
@@ -60,12 +60,12 @@ describe('Test Transform handler ', () => {
     const awsQEndpointUrl: string = DEFAULT_AWS_Q_ENDPOINT_URL
     beforeEach(async () => {
         // Set up the server with a mock service
-        client = stubInterface<CodeWhispererService>()
+        client = stubInterface<CodeWhispererServiceToken>()
         workspace = stubInterface<Workspace>()
         runtime = stubInterface<Runtime>()
 
         const serviceManager = stubInterface<AmazonQServiceManager>()
-        client = stubInterface<CodeWhispererService>()
+        client = stubInterface<CodeWhispererServiceToken>()
         serviceManager.getCodewhispererService.returns(client)
 
         transformHandler = new TransformHandler(serviceManager, workspace, mockedLogging, runtime)

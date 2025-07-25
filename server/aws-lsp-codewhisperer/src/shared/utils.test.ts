@@ -171,8 +171,8 @@ describe('getSsoConnectionType', () => {
 
     it('should return ssoConnectionType as none when getConnectionMetadata.sso.startUrl returns undefined', () => {
         const mockCredentialsProvider: CredentialsProvider = {
-            hasCredentials: sinon.stub().withArgs('bearer').returns(true),
-            getCredentials: sinon.stub().returns({ token: 'token' }),
+            hasCredentials: sinon.stub().returns(true),
+            getCredentials: sinon.stub().withArgs('bearer').returns({ token: 'token' }),
             getConnectionMetadata: sinon.stub().returns({
                 sso: {
                     startUrl: undefined,

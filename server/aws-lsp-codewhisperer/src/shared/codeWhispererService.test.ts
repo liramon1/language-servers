@@ -10,16 +10,48 @@ import {
     Logging,
     SDKInitializator,
 } from '@aws/language-server-runtimes/server-interface'
-import { ConfigurationOptions } from 'aws-sdk'
+import { AWSError, ConfigurationOptions } from 'aws-sdk'
 import * as sinon from 'sinon'
 import * as assert from 'assert'
 import {
     CodeWhispererServiceBase,
-    CodeWhispererService,
     GenerateSuggestionsRequest,
     GenerateSuggestionsResponse,
-} from './codeWhispererService'
-import CodeWhispererSigv4Client = require('../client/sigv4/codewhisperersigv4client')
+} from './codeWhispererService/codeWhispererServiceBase'
+import { CodeWhispererServiceToken } from './codeWhispererService/codeWhispererServiceToken'
+import { CodeWhispererServiceIAM } from './codeWhispererService/codeWhispererServiceIAM'
+import { PromiseResult } from 'aws-sdk/lib/request'
+import {
+    CreateUploadUrlRequest,
+    CreateUploadUrlResponse,
+    StartTransformationRequest,
+    StartTransformationResponse,
+    StopTransformationRequest,
+    StopTransformationResponse,
+    GetTransformationRequest,
+    GetTransformationResponse,
+    GetTransformationPlanRequest,
+    GetTransformationPlanResponse,
+    StartCodeAnalysisRequest,
+    StartCodeAnalysisResponse,
+    GetCodeAnalysisRequest,
+    GetCodeAnalysisResponse,
+    ListCodeAnalysisFindingsRequest,
+    ListCodeAnalysisFindingsResponse,
+    ListAvailableCustomizationsRequest,
+    ListAvailableCustomizationsResponse,
+    ListAvailableProfilesRequest,
+    SendTelemetryEventRequest,
+    SendTelemetryEventResponse,
+    CreateWorkspaceRequest,
+    CreateWorkspaceResponse,
+    ListWorkspaceMetadataRequest,
+    ListWorkspaceMetadataResponse,
+    DeleteWorkspaceRequest,
+    DeleteWorkspaceResponse,
+    ListFeatureEvaluationsRequest,
+    ListFeatureEvaluationsResponse,
+} from '../client/token/codewhispererbearertokenclient'
 
 describe('CodeWhispererService', function () {
     let sandbox: sinon.SinonSandbox
@@ -59,7 +91,7 @@ describe('CodeWhispererService', function () {
         sandbox.restore()
     })
 
-    describe('Base', function () {
+    describe('CodeWhispererServiceBase', function () {
         let service: CodeWhispererServiceBase
 
         beforeEach(function () {
@@ -68,7 +100,7 @@ describe('CodeWhispererService', function () {
                 client: any = {}
 
                 getCredentialsType(): CredentialsType {
-                    return 'bearer'
+                    return 'iam'
                 }
 
                 // Add public getters for protected properties
@@ -95,6 +127,102 @@ describe('CodeWhispererService', function () {
                 }
 
                 clearCachedSuggestions(): void {}
+
+                override codeModernizerCreateUploadUrl(
+                    request: CreateUploadUrlRequest
+                ): Promise<CreateUploadUrlResponse> {
+                    throw new Error('Method not implemented.')
+                }
+
+                override codeModernizerStartCodeTransformation(
+                    request: StartTransformationRequest
+                ): Promise<PromiseResult<StartTransformationResponse, AWSError>> {
+                    throw new Error('Method not implemented.')
+                }
+
+                override codeModernizerStopCodeTransformation(
+                    request: StopTransformationRequest
+                ): Promise<PromiseResult<StopTransformationResponse, AWSError>> {
+                    throw new Error('Method not implemented.')
+                }
+
+                override codeModernizerGetCodeTransformation(
+                    request: GetTransformationRequest
+                ): Promise<PromiseResult<GetTransformationResponse, AWSError>> {
+                    throw new Error('Method not implemented.')
+                }
+
+                override codeModernizerGetCodeTransformationPlan(
+                    request: GetTransformationPlanRequest
+                ): Promise<PromiseResult<GetTransformationPlanResponse, AWSError>> {
+                    throw new Error('Method not implemented.')
+                }
+
+                override createUploadUrl(
+                    request: CreateUploadUrlRequest
+                ): Promise<PromiseResult<CreateUploadUrlResponse, AWSError>> {
+                    throw new Error('Method not implemented.')
+                }
+
+                override startCodeAnalysis(
+                    request: StartCodeAnalysisRequest
+                ): Promise<PromiseResult<StartCodeAnalysisResponse, AWSError>> {
+                    throw new Error('Method not implemented.')
+                }
+
+                override getCodeAnalysis(
+                    request: GetCodeAnalysisRequest
+                ): Promise<PromiseResult<GetCodeAnalysisResponse, AWSError>> {
+                    throw new Error('Method not implemented.')
+                }
+
+                override listCodeAnalysisFindings(
+                    request: ListCodeAnalysisFindingsRequest
+                ): Promise<PromiseResult<ListCodeAnalysisFindingsResponse, AWSError>> {
+                    throw new Error('Method not implemented.')
+                }
+
+                override listAvailableCustomizations(
+                    request: ListAvailableCustomizationsRequest
+                ): Promise<PromiseResult<ListAvailableCustomizationsResponse, AWSError>> {
+                    throw new Error('Method not implemented.')
+                }
+
+                override listAvailableProfiles(
+                    request: ListAvailableProfilesRequest
+                ): Promise<PromiseResult<ListAvailableProfilesRequest, AWSError>> {
+                    throw new Error('Method not implemented.')
+                }
+
+                override sendTelemetryEvent(
+                    request: SendTelemetryEventRequest
+                ): Promise<PromiseResult<SendTelemetryEventResponse, AWSError>> {
+                    throw new Error('Method not implemented.')
+                }
+
+                override createWorkspace(
+                    request: CreateWorkspaceRequest
+                ): Promise<PromiseResult<CreateWorkspaceResponse, AWSError>> {
+                    throw new Error('Method not implemented.')
+                }
+
+                override listWorkspaceMetadata(
+                    request: ListWorkspaceMetadataRequest
+                ): Promise<PromiseResult<ListWorkspaceMetadataResponse, AWSError>> {
+                    throw new Error('Method not implemented.')
+                }
+
+                override deleteWorkspace(
+                    request: DeleteWorkspaceRequest
+                ): Promise<PromiseResult<DeleteWorkspaceResponse, AWSError>> {
+                    throw new Error('Method not implemented.')
+                }
+
+                override listFeatureEvaluations(
+                    request: ListFeatureEvaluationsRequest
+                ): Promise<PromiseResult<ListFeatureEvaluationsResponse, AWSError>> {
+                    throw new Error('Method not implemented.')
+                }
             }
 
             service = new TestCodeWhispererService('us-east-1', 'https://codewhisperer.us-east-1.amazonaws.com')
@@ -193,8 +321,8 @@ describe('CodeWhispererService', function () {
         })
     })
 
-    describe('IAM', function () {
-        let service: CodeWhispererService
+    describe('CodeWhispererServiceIAM', function () {
+        let service: CodeWhispererServiceIAM
 
         beforeEach(function () {
             // Mock the createCodeWhispererSigv4Client function to avoid real client creation
@@ -223,15 +351,7 @@ describe('CodeWhispererService', function () {
             )
             createClientStub.returns(mockClient)
 
-            // Mock bearer credentials
-            mockCredentialsProvider.hasCredentials.withArgs('iam').returns(true)
-            mockCredentialsProvider.getCredentials.returns({
-                accessKeyId: 'mock-access-key',
-                secretAccessKey: 'mock-secret-key',
-                sessionToken: 'mock-session-token',
-            })
-
-            service = new CodeWhispererService(
+            service = new CodeWhispererServiceIAM(
                 mockCredentialsProvider as any,
                 {} as any, // workspace parameter
                 mockLogging as any,
@@ -282,16 +402,14 @@ describe('CodeWhispererService', function () {
                 await service.generateSuggestions(mockRequest)
 
                 // Verify that the client was called with the customizationArn
-                const clientCall = (
-                    (service.client as CodeWhispererSigv4Client).generateRecommendations as sinon.SinonStub
-                ).getCall(0)
+                const clientCall = (service.client.generateRecommendations as sinon.SinonStub).getCall(0)
                 assert.strictEqual(clientCall.args[0].customizationArn, 'test-arn')
             })
         })
     })
 
-    describe('Token', function () {
-        let service: CodeWhispererService
+    describe('CodeWhispererServiceToken', function () {
+        let service: CodeWhispererServiceToken
         let mockClient: any
 
         beforeEach(function () {
@@ -329,9 +447,8 @@ describe('CodeWhispererService', function () {
             mockCredentialsProvider.getCredentials.returns({
                 token: 'mock-bearer-token',
             })
-            mockCredentialsProvider.hasCredentials.withArgs('bearer').returns(true)
 
-            service = new CodeWhispererService(
+            service = new CodeWhispererServiceToken(
                 mockCredentialsProvider as any,
                 mockWorkspace as any,
                 mockLogging as any,

@@ -1,6 +1,5 @@
 import {
     CancellationToken,
-    CredentialsType,
     ExecuteCommandParams,
     InitializeParams,
     LSPErrorCodes,

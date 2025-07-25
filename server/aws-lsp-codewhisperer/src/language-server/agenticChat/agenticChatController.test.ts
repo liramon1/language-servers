@@ -182,7 +182,7 @@ describe('AgenticChatController', () => {
     let getMessagesStub: sinon.SinonStub
     let addMessageStub: sinon.SinonStub
 
-    const setTokenCredentials = setTokenCredentialsForAmazonQServiceManagerFactory(() => testFeatures)
+    const setSsoCredentials = setTokenCredentialsForAmazonQServiceManagerFactory(() => testFeatures)
     const setIamCredentials = setIamCredentialsForAmazonQServiceManagerFactory(() => testFeatures)
 
     beforeEach(() => {
@@ -276,7 +276,7 @@ describe('AgenticChatController', () => {
         }
         testFeatures.lsp.window.showDocument = sinon.stub()
         testFeatures.setClientParams(cachedInitializeParams)
-        setTokenCredentials('builderId')
+        setSsoCredentials('builderId')
 
         activeTabSpy = sinon.spy(ChatTelemetryController.prototype, 'activeTabId', ['get', 'set'])
         removeConversationSpy = sinon.spy(ChatTelemetryController.prototype, 'removeConversation')
@@ -3021,12 +3021,11 @@ ${' '.repeat(8)}}
                     })
                 )
             })
-
-            // Store IAM credentials inside credentials provider
-            setIamCredentials()
-
             // Reset the singleton instance
             ChatSessionManagementService.reset()
+
+            // Store IAM credentials
+            setIamCredentials()
 
             // Create IAM service manager
             AmazonQServiceManager.resetInstance()

@@ -220,8 +220,9 @@ import { sanitize } from '@aws/lsp-core/out/util/path'
 import { getLatestAvailableModel } from './utils/agenticChatControllerHelper'
 import { ActiveUserTracker } from '../../shared/activeUserTracker'
 import { UserContext } from '../../client/token/codewhispererbearertokenclient'
-import { CodeWhispererService } from '../../shared/codeWhispererService'
+import { CodeWhispererServiceToken } from '../../shared/codeWhispererService/codeWhispererServiceToken'
 import { enabledCompaction } from './qAgenticChatServer'
+import { CodeWhispererServiceBase } from '../../shared/codeWhispererService/codeWhispererServiceBase'
 
 type ChatHandlers = Omit<
     LspHandlers<Chat>,
@@ -2423,7 +2424,7 @@ export class AgenticChatController implements ChatHandlers {
                             status: {
                                 status: 'error',
                                 icon: 'stop',
-                                text: 'Canceled',
+                                text: 'Stopped',
                             },
                             buttons: [],
                         },
@@ -4365,7 +4366,7 @@ export class AgenticChatController implements ChatHandlers {
         }
 
         this.#abTestingFetchingTimeout = setInterval(() => {
-            let codeWhispererService: CodeWhispererService
+            let codeWhispererService: CodeWhispererServiceBase
             try {
                 codeWhispererService = AmazonQServiceManager.getInstance().getCodewhispererService()
             } catch (error) {

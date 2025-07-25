@@ -9,7 +9,10 @@ import { ChatSessionManagementService } from '../chat/chatSessionManagementServi
 import { CLEAR_QUICK_ACTION, COMPACT_QUICK_ACTION, HELP_QUICK_ACTION } from '../chat/quickActions'
 import { TelemetryService } from '../../shared/telemetry/telemetryService'
 import { makeUserContextObject } from '../../shared/telemetryUtils'
-import { AmazonQServiceManager } from '../../shared/amazonQServiceManager/AmazonQServiceManager'
+import {
+    AmazonQServiceManager,
+    getOrThrowBaseServiceManager,
+} from '../../shared/amazonQServiceManager/AmazonQServiceManager'
 import { AmazonQWorkspaceConfig } from '../../shared/amazonQServiceManager/configurationUtils'
 import { TabBarController } from './tabBarController'
 import { AmazonQServiceInitializationError } from '../../shared/amazonQServiceManager/errors'

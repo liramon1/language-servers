@@ -15,11 +15,11 @@ import sinon, { StubbedInstance } from 'ts-sinon'
 import { CONTEXT_CHARACTERS_LIMIT, CodewhispererServerFactory } from './codeWhispererServer'
 import {
     CodeWhispererServiceBase,
-    CodeWhispererService,
     ResponseContext,
     Suggestion,
     SuggestionType,
-} from '../../shared/codeWhispererService'
+} from '../../shared/codeWhispererService/codeWhispererServiceBase'
+import { CodeWhispererServiceToken } from '../../shared/codeWhispererService/codeWhispererServiceToken'
 import { CodeWhispererSession, SessionData, SessionManager } from './session/sessionManager'
 import {
     EMPTY_RESULT,
@@ -772,8 +772,8 @@ describe('CodeWhisperer Server', () => {
         describe('Supplemental Context', () => {
             it('should send supplemental context when using token authentication', async () => {
                 const test_service = sinon.createStubInstance(
-                    CodeWhispererService
-                ) as StubbedInstance<CodeWhispererService>
+                    CodeWhispererServiceToken
+                ) as StubbedInstance<CodeWhispererServiceToken>
 
                 test_service.generateSuggestions.returns(
                     Promise.resolve({
@@ -2326,7 +2326,7 @@ describe('CodeWhisperer Server', () => {
 
         beforeEach(async () => {
             // Set up the server with a mock service, returning predefined recommendations
-            service = sinon.createStubInstance(CodeWhispererService) as StubbedInstance<CodeWhispererService>
+            service = sinon.createStubInstance(CodeWhispererServiceToken) as StubbedInstance<CodeWhispererServiceToken>
 
             service.generateSuggestions.returns(
                 Promise.resolve({

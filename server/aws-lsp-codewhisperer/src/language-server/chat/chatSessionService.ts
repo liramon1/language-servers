@@ -8,9 +8,10 @@ import {
     ToolUse,
 } from '@amzn/codewhisperer-streaming'
 import {
-    StreamingClientService,
+    StreamingClientServiceToken,
     SendMessageCommandInput,
     SendMessageCommandOutput,
+    StreamingClientServiceIAM,
     ChatCommandInput,
     ChatCommandOutput,
 } from '../../shared/streamingClientService'
@@ -175,11 +176,7 @@ export class ChatSessionService {
 
         const client = this.#serviceManager.getStreamingClient()
 
-        if (!(client instanceof StreamingClientService)) {
-            throw new AgenticChatError('StreamingClientService was not retrieved', 'AmazonQServiceManager')
-        }
-
-        if (client.getCredentialsType() === 'bearer') {
+        if (client instanceof StreamingClientServiceToken) {
             try {
                 return await client.generateAssistantResponse(request, this.#abortController)
             } catch (e) {
@@ -235,7 +232,7 @@ export class ChatSessionService {
 
                 throw error
             }
-        } else if (client.getCredentialsType() === 'iam') {
+        } else if (client instanceof StreamingClientServiceIAM) {
             try {
                 // @ts-ignore
                 // SendMessageStreaming checks for origin from request source
@@ -285,7 +282,10 @@ export class ChatSessionService {
                 throw error
             }
         } else {
-            throw new AgenticChatError('No credentials found in client.', 'AmazonQServiceManager')
+            // error
+            return Promise.reject(
+                'Client is not instance of StreamingClientServiceToken, generateAssistantResponse not available for IAM client.'
+            )
         }
     }
 

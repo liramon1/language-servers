@@ -2,7 +2,9 @@ import * as assert from 'assert'
 import sinon, { StubbedInstance, stubInterface } from 'ts-sinon'
 import { AmazonQServiceManager } from './AmazonQServiceManager'
 import { TestFeatures } from '@aws/language-server-runtimes/testing'
-import { CodeWhispererService, GenerateSuggestionsRequest } from '../codeWhispererService'
+import { GenerateSuggestionsRequest } from '../codeWhispererService/codeWhispererServiceBase'
+import { CodeWhispererServiceToken } from '../codeWhispererService/codeWhispererServiceToken'
+import { CodeWhispererServiceIAM } from '../codeWhispererService/codeWhispererServiceIAM'
 import {
     AmazonQServiceInitializationError,
     AmazonQServicePendingProfileError,
@@ -27,7 +29,7 @@ import {
     setTokenCredentialsForAmazonQServiceManagerFactory,
     setIamCredentialsForAmazonQServiceManagerFactory,
 } from '../testUtils'
-import { StreamingClientService } from '../streamingClientService'
+import { StreamingClientServiceToken, StreamingClientServiceIAM } from '../streamingClientService'
 import { generateSingletonInitializationTests } from './testUtils'
 import * as utils from '../utils'
 
@@ -59,8 +61,8 @@ const TEST_ENDPOINT_US_EAST_1 = 'http://amazon-q-in-us-east-1-endpoint'
 const TEST_ENDPOINT_EU_CENTRAL_1 = 'http://amazon-q-in-eu-central-1-endpoint'
 
 describe('Token', () => {
-    let codewhispererServiceStub: StubbedInstance<CodeWhispererService>
-    let codewhispererStubFactory: sinon.SinonStub<any[], StubbedInstance<CodeWhispererService>>
+    let codewhispererServiceStub: StubbedInstance<CodeWhispererServiceToken>
+    let codewhispererStubFactory: sinon.SinonStub<any[], StubbedInstance<CodeWhispererServiceToken>>
     let sdkInitializatorSpy: sinon.SinonSpy
     let getListAllAvailableProfilesHandlerStub: sinon.SinonStub
 
@@ -92,7 +94,7 @@ describe('Token', () => {
             v2: sinon.spy(features.sdkInitializator.v2),
         })
 
-        codewhispererServiceStub = stubInterface<CodeWhispererService>()
+        codewhispererServiceStub = stubInterface<CodeWhispererServiceToken>()
         // @ts-ignore
         codewhispererServiceStub.client = sinon.stub()
         codewhispererServiceStub.customizationArn = undefined
@@ -139,7 +141,7 @@ describe('Token', () => {
 
     const setupServiceManagerWithProfile = async (
         profileArn = 'arn:aws:testprofilearn:us-east-1:11111111111111:profile/QQQQQQQQQQQQ'
-    ): Promise<CodeWhispererService> => {
+    ): Promise<CodeWhispererServiceToken> => {
         setupServiceManager(true)
         assert.strictEqual(amazonQServiceManager.getState(), 'PENDING_CONNECTION')
 
@@ -159,7 +161,7 @@ describe('Token', () => {
         assert.strictEqual(amazonQServiceManager.getState(), 'INITIALIZED')
         assert.strictEqual(amazonQServiceManager.getConnectionType(), 'identityCenter')
 
-        return service
+        return service as CodeWhispererServiceToken
     }
 
     describe('Initialization process', () => {
@@ -243,7 +245,7 @@ describe('Token', () => {
             assert.strictEqual(amazonQServiceManager.getState(), 'INITIALIZED')
             assert.strictEqual(amazonQServiceManager.getConnectionType(), 'builderId')
 
-            assert(streamingClient instanceof StreamingClientService)
+            assert(streamingClient instanceof StreamingClientServiceToken)
             assert(codewhispererServiceStub.generateSuggestions.calledOnce)
         })
 
@@ -316,7 +318,7 @@ describe('Token', () => {
                 assert.strictEqual(amazonQServiceManager.getConnectionType(), 'identityCenter')
                 assert(codewhispererServiceStub.generateSuggestions.calledOnce)
 
-                assert(streamingClient instanceof StreamingClientService)
+                assert(streamingClient instanceof StreamingClientServiceToken)
             })
         })
 
@@ -377,7 +379,7 @@ describe('Token', () => {
                 assert.strictEqual(amazonQServiceManager.getConnectionType(), 'identityCenter')
                 assert(codewhispererStubFactory.calledOnceWithExactly('us-east-1', TEST_ENDPOINT_US_EAST_1))
 
-                assert(streamingClient instanceof StreamingClientService)
+                assert(streamingClient instanceof StreamingClientServiceToken)
                 assert.strictEqual(await streamingClient.client.config.region(), 'us-east-1')
             })
 
@@ -454,7 +456,7 @@ describe('Token', () => {
                 )
 
                 assert(codewhispererStubFactory.calledOnceWithExactly('us-east-1', TEST_ENDPOINT_US_EAST_1))
-                assert(streamingClient1 instanceof StreamingClientService)
+                assert(streamingClient1 instanceof StreamingClientServiceToken)
                 assert.strictEqual(await streamingClient1.client.config.region(), 'us-east-1')
 
                 // Profile change
@@ -481,7 +483,7 @@ describe('Token', () => {
                 // CodeWhisperer Service was not recreated
                 assert(codewhispererStubFactory.calledOnceWithExactly('us-east-1', TEST_ENDPOINT_US_EAST_1))
 
-                assert(streamingClient2 instanceof StreamingClientService)
+                assert(streamingClient2 instanceof StreamingClientServiceToken)
                 assert.strictEqual(streamingClient1, streamingClient2)
                 assert.strictEqual(await streamingClient2.client.config.region(), 'us-east-1')
             })
@@ -514,7 +516,7 @@ describe('Token', () => {
                 )
                 assert(codewhispererStubFactory.calledOnceWithExactly('us-east-1', TEST_ENDPOINT_US_EAST_1))
 
-                assert(streamingClient1 instanceof StreamingClientService)
+                assert(streamingClient1 instanceof StreamingClientServiceToken)
                 assert.strictEqual(await streamingClient1.client.config.region(), 'us-east-1')
 
                 // Profile change
@@ -546,7 +548,7 @@ describe('Token', () => {
                 ])
 
                 // Streaming Client was recreated
-                assert(streamingClient2 instanceof StreamingClientService)
+                assert(streamingClient2 instanceof StreamingClientServiceToken)
                 assert.notStrictEqual(streamingClient1, streamingClient2)
                 assert.strictEqual(await streamingClient2.client.config.region(), 'eu-central-1')
             })
@@ -580,7 +582,7 @@ describe('Token', () => {
                 )
                 assert(codewhispererStubFactory.calledOnceWithExactly('us-east-1', TEST_ENDPOINT_US_EAST_1))
 
-                assert(streamingClient instanceof StreamingClientService)
+                assert(streamingClient instanceof StreamingClientServiceToken)
                 assert.strictEqual(await streamingClient.client.config.region(), 'us-east-1')
 
                 // Profile change to invalid profile
@@ -689,7 +691,7 @@ describe('Token', () => {
                     TEST_ENDPOINT_EU_CENTRAL_1,
                 ])
 
-                assert(streamingClient instanceof StreamingClientService)
+                assert(streamingClient instanceof StreamingClientServiceToken)
                 assert.strictEqual(await streamingClient.client.config.region(), 'eu-central-1')
             })
 
@@ -724,7 +726,7 @@ describe('Token', () => {
                 )
                 assert.deepStrictEqual(codewhispererStubFactory.lastCall.args, ['us-east-1', TEST_ENDPOINT_US_EAST_1])
 
-                assert(streamingClient instanceof StreamingClientService)
+                assert(streamingClient instanceof StreamingClientServiceToken)
                 assert.strictEqual(await streamingClient.client.config.region(), 'us-east-1')
 
                 // Updaing profile
@@ -905,7 +907,7 @@ describe('Token', () => {
                 assert.strictEqual(amazonQServiceManager.getConnectionType(), 'builderId')
                 assert.strictEqual(amazonQServiceManager.getActiveProfileArn(), undefined)
 
-                assert(streamingClient instanceof StreamingClientService)
+                assert(streamingClient instanceof StreamingClientServiceToken)
                 assert.strictEqual(await streamingClient.client.config.region(), 'us-east-1')
 
                 setCredentials('identityCenter')
@@ -919,7 +921,7 @@ describe('Token', () => {
                 assert(codewhispererStubFactory.calledTwice)
                 assert(codewhispererStubFactory.calledWithExactly(DEFAULT_AWS_Q_REGION, DEFAULT_AWS_Q_ENDPOINT_URL))
 
-                assert(streamingClient2 instanceof StreamingClientService)
+                assert(streamingClient2 instanceof StreamingClientServiceToken)
                 assert.strictEqual(await streamingClient2.client.config.region(), DEFAULT_AWS_Q_REGION)
             })
 
@@ -935,7 +937,7 @@ describe('Token', () => {
                 assert.strictEqual(amazonQServiceManager.getConnectionType(), 'builderId')
                 assert.strictEqual(amazonQServiceManager.getActiveProfileArn(), undefined)
 
-                assert(streamingClient instanceof StreamingClientService)
+                assert(streamingClient instanceof StreamingClientServiceToken)
                 assert.strictEqual(await streamingClient.client.config.region(), 'us-east-1')
 
                 setCredentials('identityCenter')
@@ -965,7 +967,7 @@ describe('Token', () => {
                 assert.strictEqual(amazonQServiceManager.getConnectionType(), 'identityCenter')
                 assert.strictEqual(amazonQServiceManager.getActiveProfileArn(), undefined)
 
-                assert(streamingClient instanceof StreamingClientService)
+                assert(streamingClient instanceof StreamingClientServiceToken)
                 assert.strictEqual(await streamingClient.client.config.region(), 'us-east-1')
 
                 setCredentials('builderId')
@@ -979,7 +981,7 @@ describe('Token', () => {
                 assert(codewhispererStubFactory.calledTwice)
                 assert(codewhispererStubFactory.calledWithExactly(DEFAULT_AWS_Q_REGION, DEFAULT_AWS_Q_ENDPOINT_URL))
 
-                assert(streamingClient2 instanceof StreamingClientService)
+                assert(streamingClient2 instanceof StreamingClientServiceToken)
                 assert.strictEqual(await streamingClient2.client.config.region(), 'us-east-1')
             })
         })
@@ -1079,16 +1081,11 @@ describe('IAM', () => {
         })
 
         it('should initialize the streaming client only once', () => {
-            setCredentials()
             // Mock the credentials provider to return credentials when requested
-            features.credentialsProvider.getCredentials.withArgs('iam').returns({
-                accessKeyId: 'dummy-access-key',
-                secretAccessKey: 'dummy-secret-key',
-                sessionToken: 'dummy-session-token',
-            })
-
+            setCredentials()
             const streamingClient = serviceManager.getStreamingClient()
 
+            // Verify that getting the client again returns the same instance
             assert.deepStrictEqual(serviceManager.getStreamingClient(), streamingClient)
         })
     })
