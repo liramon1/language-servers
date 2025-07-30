@@ -126,7 +126,7 @@ export abstract class CodeWhispererServiceBase {
     ): Promise<PromiseResult<CodeWhispererTokenClient.ListAvailableCustomizationsResponse, AWSError>>
     abstract listAvailableProfiles(
         request: CodeWhispererTokenClient.ListAvailableProfilesRequest
-    ): Promise<PromiseResult<CodeWhispererTokenClient.ListAvailableProfilesRequest, AWSError>>
+    ): Promise<PromiseResult<CodeWhispererTokenClient.ListAvailableProfilesResponse, AWSError>>
     abstract sendTelemetryEvent(
         request: CodeWhispererTokenClient.SendTelemetryEventRequest
     ): Promise<PromiseResult<CodeWhispererTokenClient.SendTelemetryEventResponse, AWSError>>

@@ -129,7 +129,7 @@ export class CodeWhispererServiceIAM extends CodeWhispererServiceBase {
     }
     public async listAvailableProfiles(
         request: CodeWhispererTokenClient.ListAvailableProfilesRequest
-    ): Promise<PromiseResult<CodeWhispererTokenClient.ListAvailableProfilesRequest, AWSError>> {
+    ): Promise<PromiseResult<CodeWhispererTokenClient.ListAvailableProfilesResponse, AWSError>> {
         throw new Error('Method not implemented.')
     }
     public async sendTelemetryEvent(

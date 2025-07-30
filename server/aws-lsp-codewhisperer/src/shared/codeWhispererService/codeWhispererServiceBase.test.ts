@@ -29,6 +29,7 @@ import {
     ListAvailableCustomizationsRequest,
     ListAvailableCustomizationsResponse,
     ListAvailableProfilesRequest,
+    ListAvailableProfilesResponse,
     SendTelemetryEventRequest,
     SendTelemetryEventResponse,
     CreateWorkspaceRequest,
@@ -132,7 +133,7 @@ describe('CodeWhispererServiceBase', function () {
             }
             override listAvailableProfiles(
                 request: ListAvailableProfilesRequest
-            ): Promise<PromiseResult<ListAvailableProfilesRequest, AWSError>> {
+            ): Promise<PromiseResult<ListAvailableProfilesResponse, AWSError>> {
                 throw new Error('Method not implemented.')
             }
             override sendTelemetryEvent(
