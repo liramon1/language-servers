@@ -496,6 +496,46 @@ describe('ProfileService', async () => {
             'Cannot update shared sso-session.'
         )
     })
+
+    describe('File watching', () => {
+        afterEach(() => {
+            sut.stopWatching()
+        })
+
+        it('startWatching sets up file watcher', () => {
+            let changeCallbackCalled = false
+            const onChange = () => {
+                changeCallbackCalled = true
+            }
+
+            sut.startWatching(onChange)
+
+            expect(changeCallbackCalled).to.be.false
+        })
+
+        it('stopWatching cleans up file watcher', () => {
+            sut.startWatching()
+            sut.stopWatching()
+
+            // Should not throw when called multiple times
+            sut.stopWatching()
+        })
+
+        it('listProfiles uses cache when available', async () => {
+            const cachedData = {
+                profiles: [profile1],
+                ssoSessions: [ssoSession1],
+            }
+
+            // Manually set cache
+            ;(sut as any).profileCache = cachedData
+
+            const result = await sut.listProfiles({})
+
+            expect(result).to.equal(cachedData)
+            expect(store.load.callCount).to.equal(0)
+        })
+    })
 })
 
 describe('profileService.DuckTypers', () => {
