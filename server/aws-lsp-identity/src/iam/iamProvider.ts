@@ -11,7 +11,6 @@ import { checkMfaRequired, IamFlowParams } from './utils'
 import { convertProfileToId } from '../sts/cache/fileSystemStsCache'
 
 const sourceProfileRecursionMax = 5
-const mfaTimeout = 2 * 60 * 1000 // 2 minutes
 
 export class IamProvider {
     readonly defaultRegion = 'us-east-1'
